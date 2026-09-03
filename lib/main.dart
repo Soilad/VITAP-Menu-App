@@ -181,17 +181,28 @@ class _MyHomePageState extends State<MyHomePage> {
       () {
         int currentMonthDay = (selectedDate.day - 1) % 14;
         periodWidgets = [
-          ActionChip(
-            onPressed: _changeDate,
-            label: Text(
+          Container(
+            margin: EdgeInsets.all(10),
+            child: ActionChip(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.all(
+                  Radius.circular(40)
+                )
+              ),
+              onPressed: _changeDate,
+              label: SizedBox(
+                width: double.infinity,
+                child: Text(
                   style: const TextStyle(
                     fontStyle: FontStyle.italic,
                     fontSize: 28,
                   ),
                   textAlign: TextAlign.center,
                   DateFormat('dd-MM-yyyy')
-                      .format(_selectedDate)
+                  .format(_selectedDate)
+                )
               )
+            )
           )
         ];
 
@@ -212,7 +223,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 borderRadius: BorderRadius.circular(20),
                 color: Theme.of(context).colorScheme.onPrimaryContainer
               ),
-              padding: EdgeInsets.all(10) ,
+              padding: EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
