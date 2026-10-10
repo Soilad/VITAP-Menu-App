@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -185,9 +186,10 @@ fun TimeEntries(showCalendar: Boolean, showCredits: Boolean, onDismissCalendar: 
             isRefreshing = true
             refreshKey++
         },
+        modifier = Modifier.fillMaxSize(),
     ) {
         LazyColumn(
-            modifier = Modifier.pointerInput(Unit) {
+            modifier = Modifier.fillMaxSize().pointerInput(Unit) {
                 detectHorizontalDragGestures(
                     onDragStart = {
                         offsetX = 0f

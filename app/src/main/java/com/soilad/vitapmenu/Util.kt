@@ -40,7 +40,7 @@ suspend fun getMenu(context: Context, year: String, month: String, forceRefresh:
         httpClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return@withContext null
 
-            val bodyString = response.body?.string() ?: return@withContext null
+            val bodyString = response.body.string()
             Json.decodeFromString<List<List<TimeEntry>>>(bodyString)
         }
     } catch (e: Exception) {
