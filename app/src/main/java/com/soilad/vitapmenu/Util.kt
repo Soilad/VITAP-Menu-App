@@ -7,6 +7,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.Cache
+import okhttp3.CacheControl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -27,10 +28,11 @@ private fun getHttpClient(context: Context): OkHttpClient {
     }
 }
 
-suspend fun getMenu(context: Context, year: String, month: String): List<List<TimeEntry>>? = withContext(Dispatchers.IO) {
+suspend fun getMenu(context: Context, year: String, month: String, forceRefresh: Boolean = false): List<List<TimeEntry>>? = withContext(Dispatchers.IO) {
     val url = "https://soilad.github.io/VITAP-Menu/menu/$year/$month/menu.json"
     val request = Request.Builder()
         .url(url)
+        .apply { if (forceRefresh) cacheControl(CacheControl.FORCE_NETWORK) }
         .build()
 
     try {

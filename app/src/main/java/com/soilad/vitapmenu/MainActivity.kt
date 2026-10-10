@@ -36,12 +36,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.getSelectedDate
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.material3.setSelectedDate
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -82,13 +84,17 @@ fun TimeEntries(showCalendar: Boolean, showCredits: Boolean, onDismissCalendar: 
     val icons = arrayOf("\uD83E\uDD66", "\uD83C\uDF56", "✨\uD83E\uDD66", "✨\uD83C\uDF56")
     val day = date.dayOfMonth
 
-    val menuState = produceState<List<List<TimeEntry>>?>(initialValue = null, key1 = year, key2 = month) {
+    var refreshKey by remember { mutableIntStateOf(0) }
+    var isRefreshing by remember { mutableStateOf(false) }
+
+    val menuState = produceState<List<List<TimeEntry>>?>(initialValue = null, year, month, refreshKey) {
         value = try {
-            getMenu(context, year.toString(), String.format("%02d", month)) ?: emptyList()
+            getMenu(context, year.toString(), String.format("%02d", month), forceRefresh = isRefreshing) ?: emptyList()
         } catch (e: Exception) {
             e.printStackTrace()
             emptyList()
         }
+        isRefreshing = false
     }
 
     val currentHour = LocalDateTime.now().hour
@@ -168,71 +174,76 @@ fun TimeEntries(showCalendar: Boolean, showCredits: Boolean, onDismissCalendar: 
         }
         return
     }
-    if (todayMenu == null) {
-        Text(text = "No menu available", modifier = Modifier.padding(10.dp))
-        return
-    }
-
     Text(
         "$day/$month/$year",
         textAlign = TextAlign.Center,
         modifier = Modifier.fillMaxWidth()
     )
-
-    LazyColumn(
-        modifier = Modifier.pointerInput(Unit) {
-            detectHorizontalDragGestures(
-                onDragStart = {
-                    offsetX = 0f
-                },
-                onDragEnd = {
-                    if (offsetX < -50) {
-                        date = date.plusDays(1)
-                    } else if (offsetX > 50) {
-                        date = date.minusDays(1)
-                    }
-                    datePickerState.setSelectedDate(date)
-                }
-            ) { _, dragAmount ->
-                offsetX += dragAmount
-            }
-        }
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = {
+            isRefreshing = true
+            refreshKey++
+        },
     ) {
-        items(todayMenu) { timeEntry ->
-            Card (
-                // color = MaterialTheme.colorScheme.surface,
-                modifier = Modifier.padding(10.dp),
-                // shape = RoundedCornerShape(CornerSize(10.dp))
-            ) {
-                Row(
-                    modifier = Modifier.padding(10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        text = timeEntry.title,
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(
-                        text = "(${timeEntry.start} - ${timeEntry.end})",
-                        style = MaterialTheme.typography.titleLarge,
-                    )
+        LazyColumn(
+            modifier = Modifier.pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragStart = {
+                        offsetX = 0f
+                    },
+                    onDragEnd = {
+                        if (offsetX < -50) {
+                            date = date.plusDays(1)
+                        } else if (offsetX > 50) {
+                            date = date.minusDays(1)
+                        }
+                        datePickerState.setSelectedDate(date)
+                    }
+                ) { _, dragAmount ->
+                    offsetX += dragAmount
                 }
-                HorizontalDivider()
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.padding(4.dp),
+            }
+        ) {
+            if (todayMenu == null) {
+                item { Text(text = "No menu available", modifier = Modifier.padding(10.dp)) }
+            }
+            items(todayMenu ?: emptyList()) { timeEntry ->
+                Card(
+                    // color = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier.padding(10.dp),
+                    // shape = RoundedCornerShape(CornerSize(10.dp))
                 ) {
-                    for (foodEntry in timeEntry.foodEntries) {
-                        SuggestionChip(
-                            onClick = { Log.d("Suggestion chip", "hello world") },
-                            label = { Text("${icons[foodEntry.type]} ${foodEntry.name}") },
-                            // selected = true,
-                            colors   = SuggestionChipDefaults.suggestionChipColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                labelColor     = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = timeEntry.title,
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.weight(1f)
                         )
+                        Text(
+                            text = "(${timeEntry.start} - ${timeEntry.end})",
+                            style = MaterialTheme.typography.titleLarge,
+                        )
+                    }
+                    HorizontalDivider()
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.padding(4.dp),
+                    ) {
+                        for (foodEntry in timeEntry.foodEntries) {
+                            SuggestionChip(
+                                onClick = { Log.d("Suggestion chip", "hello world") },
+                                label = { Text("${icons[foodEntry.type]} ${foodEntry.name}") },
+                                // selected = true,
+                                colors = SuggestionChipDefaults.suggestionChipColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    labelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            )
+                        }
                     }
                 }
             }
