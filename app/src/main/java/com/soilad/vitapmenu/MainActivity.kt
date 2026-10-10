@@ -1,10 +1,10 @@
 package com.soilad.vitapmenu
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -27,7 +29,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MediumTopAppBar
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
@@ -47,15 +48,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.soilad.vitapmenu.ui.theme.ApplicationTheme
 import java.time.LocalDate
 import java.time.LocalDateTime
+import androidx.core.net.toUri
 
 
 class MainActivity : ComponentActivity() {
@@ -71,9 +73,8 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun TimeEntries(showCalendar: Boolean, onDismissCalendar: () -> Unit) {
+fun TimeEntries(showCalendar: Boolean, showCredits: Boolean, onDismissCalendar: () -> Unit, onDismissCredits: () -> Unit) {
     val context = LocalContext.current.applicationContext
-    val locale = LocalConfiguration.current.locales[0]
     var date by remember { mutableStateOf(LocalDate.now()) }
 
     val month = date.month.value
@@ -91,14 +92,62 @@ fun TimeEntries(showCalendar: Boolean, onDismissCalendar: () -> Unit) {
     }
 
     val currentHour = LocalDateTime.now().hour
-    val todayMenu = menuState.value?.getOrNull((day + 1) % 14)?.sortedBy { entry ->
+    val todayMenu = menuState.value?.getOrNull((day - 1) % 14)?.sortedBy { entry ->
         (entry.end.split(":")[0].toInt() - currentHour + 24) % 24
     }
 
     var offsetX by remember { mutableFloatStateOf(0f) }
-    var datePickerState = rememberDatePickerState()
+    val datePickerState = rememberDatePickerState()
     if (datePickerState.getSelectedDate() != null) {
         date = datePickerState.getSelectedDate()
+    } else {
+        datePickerState.setSelectedDate(date)
+    }
+
+    if (showCredits) {
+        val ctx = LocalContext.current
+        Dialog(
+            onDismissRequest = onDismissCredits,
+        ) {
+            Card {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(text = "Soilad", textAlign = TextAlign.Left, fontSize = 24.sp)
+                    Button(
+                        onClick = {
+                            ctx.startActivity(
+                                Intent(
+                                    Intent.ACTION_VIEW,
+                                    "https://github.com/Soilad".toUri()
+                                )
+                            )
+                        }
+                    ) { Text("GH") }
+                    Button(
+                        onClick = {
+                            ctx.startActivity(
+                                Intent(
+                                    Intent.ACTION_VIEW,
+                                    "https://www.youtube.com/@Soilad".toUri()
+                                )
+                            )
+                        }
+                    ) { Text("YT") }
+                    Button(
+                        onClick = {
+                            ctx.startActivity(
+                                Intent(
+                                    Intent.ACTION_VIEW,
+                                    "https://instagram.com/_soilad_".toUri()
+                                )
+                            )
+                        }
+                    ) { Text("Insta") }
+                }
+            }
+        }
     }
 
     if (showCalendar) {
@@ -197,23 +246,24 @@ fun TimeEntries(showCalendar: Boolean, onDismissCalendar: () -> Unit) {
 fun App() {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
     var showCalendar by remember { mutableStateOf(false) }
+    var showCredits by remember { mutableStateOf(false) }
     ApplicationTheme {
         Scaffold(
             topBar = {
-                MediumTopAppBar(
+                TopAppBar(
                     title = {
                         Text("VIT-AP Mess Menu")
                     },
                     actions = {
-                        IconButton(onClick = { /* do something */ }) {
+                        IconButton(onClick = { showCredits = !showCredits }) {
                             Icon(
-                                imageVector = Icons.Filled.Menu,
+                                imageVector = Icons.Default.Menu,
                                 contentDescription = "Localized description"
                             )
                         }
                     },
                     scrollBehavior = scrollBehavior
-                ),
+                )
             },
             floatingActionButton = {
                 FloatingActionButton(
@@ -230,7 +280,7 @@ fun App() {
             Column(modifier = Modifier.padding(
                 top = paddingValues.calculateTopPadding(),
             )) {
-                TimeEntries(showCalendar, onDismissCalendar = { showCalendar = false })
+                TimeEntries(showCalendar, showCredits, onDismissCalendar = { showCalendar = false }, onDismissCredits = { showCredits = false })
             }
         }
     }
