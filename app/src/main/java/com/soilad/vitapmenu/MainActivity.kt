@@ -34,6 +34,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.getSelectedDate
@@ -42,14 +43,14 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.material3.setSelectedDate
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
@@ -57,245 +58,235 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.soilad.vitapmenu.ui.theme.ApplicationTheme
-import java.time.LocalDate
-import java.time.LocalDateTime
 import androidx.core.net.toUri
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.soilad.vitapmenu.ui.theme.ApplicationTheme
+import java.time.LocalDateTime
 
+private val foodIcons = arrayOf("🥦", "🍖", "✨🥦", "✨🍖")
 
 class MainActivity : ComponentActivity() {
-    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // enableEdgeToEdge()
         setContent {
-            App()
+            ApplicationTheme {
+                MenuRoute()
+            }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+// Stateful entry point: owns the ViewModel and forwards state down, intents up.
 @Composable
-fun TimeEntries(showCalendar: Boolean, showCredits: Boolean, onDismissCalendar: () -> Unit, onDismissCredits: () -> Unit) {
-    val context = LocalContext.current.applicationContext
-    var date by remember { mutableStateOf(LocalDate.now()) }
+fun MenuRoute(viewModel: MenuViewModel = viewModel(factory = MenuViewModel.Factory)) {
+    val state by viewModel.menuState.collectAsStateWithLifecycle()
+    MenuScreen(state = state, onIntent = viewModel::onIntent)
+}
 
-    val month = date.month.value
-    val year  = date.year
-    val icons = arrayOf("\uD83E\uDD66", "\uD83C\uDF56", "✨\uD83E\uDD66", "✨\uD83C\uDF56")
-    val day = date.dayOfMonth
+// Stateless: renders MenuState, reports user actions as MenuIntents.
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MenuScreen(state: MenuState, onIntent: (MenuIntent) -> Unit) {
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
 
-    var refreshKey by remember { mutableIntStateOf(0) }
-    var isRefreshing by remember { mutableStateOf(false) }
-
-    val menuState = produceState<List<List<TimeEntry>>?>(initialValue = null, year, month, refreshKey) {
-        value = try {
-            getMenu(context, year.toString(), String.format("%02d", month), forceRefresh = isRefreshing) ?: emptyList()
-        } catch (e: Exception) {
-            e.printStackTrace()
-            emptyList()
-        }
-        isRefreshing = false
-    }
-
-    val currentHour = LocalDateTime.now().hour
-    val todayMenu = menuState.value?.getOrNull((day - 1) % 14)?.sortedBy { entry ->
-        (entry.end.split(":")[0].toInt() - currentHour + 24) % 24
-    }
-
-    var offsetX by remember { mutableFloatStateOf(0f) }
-    val datePickerState = rememberDatePickerState()
-    if (datePickerState.getSelectedDate() != null) {
-        date = datePickerState.getSelectedDate()
-    } else {
-        datePickerState.setSelectedDate(date)
-    }
-
-    if (showCredits) {
-        val ctx = LocalContext.current
-        Dialog(
-            onDismissRequest = onDismissCredits,
-        ) {
-            Card {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(text = "Soilad", textAlign = TextAlign.Left, fontSize = 24.sp)
-                    Button(
-                        onClick = {
-                            ctx.startActivity(
-                                Intent(
-                                    Intent.ACTION_VIEW,
-                                    "https://github.com/Soilad".toUri()
-                                )
-                            )
-                        }
-                    ) { Text("GH") }
-                    Button(
-                        onClick = {
-                            ctx.startActivity(
-                                Intent(
-                                    Intent.ACTION_VIEW,
-                                    "https://www.youtube.com/@Soilad".toUri()
-                                )
-                            )
-                        }
-                    ) { Text("YT") }
-                    Button(
-                        onClick = {
-                            ctx.startActivity(
-                                Intent(
-                                    Intent.ACTION_VIEW,
-                                    "https://instagram.com/_soilad_".toUri()
-                                )
-                            )
-                        }
-                    ) { Text("Insta") }
-                }
-            }
-        }
-    }
-
-    if (showCalendar) {
-        DatePickerDialog(
-            onDismissRequest = onDismissCalendar,
-            confirmButton = {
-            }
-        ) {
-            DatePicker(
-                state = datePickerState,
+    Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            TopAppBar(
+                title = { Text("VIT-AP Mess Menu") },
+                actions = {
+                    IconButton(onClick = { onIntent(MenuIntent.ToggleCredits) }) {
+                        Icon(imageVector = Icons.Default.Menu, contentDescription = "Credits")
+                    }
+                },
+                scrollBehavior = scrollBehavior,
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { onIntent(MenuIntent.ToggleCalendar) }) {
+                Icon(imageVector = Icons.Default.DateRange, contentDescription = "Select Date")
+            }
+        },
+    ) { paddingValues ->
+        Column(modifier = Modifier.padding(top = paddingValues.calculateTopPadding())) {
+            MenuContent(state, onIntent)
         }
     }
 
-    if (menuState.value == null) {
+    if (state.showCredits) {
+        CreditsDialog(onDismiss = { onIntent(MenuIntent.ToggleCredits) })
+    }
+
+    if (state.showCalendar) {
+        CalendarDialog(
+            selectedDate = state.selectedDate,
+            onConfirm = { onIntent(MenuIntent.SelectDate(it)) },
+            onDismiss = { onIntent(MenuIntent.ToggleCalendar) },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun MenuContent(state: MenuState, onIntent: (MenuIntent) -> Unit) {
+    if (state.isLoading) {
         Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
             LoadingIndicator()
         }
         return
     }
+
+    val date = state.selectedDate
     Text(
-        "$day/$month/$year",
+        "${date.dayOfMonth}/${date.monthValue}/${date.year}",
         textAlign = TextAlign.Center,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     )
+
+    // pointerInput(Unit) keeps its first lambda, so read the latest values through these.
+    val currentDate by rememberUpdatedState(state.selectedDate)
+    val currentOnIntent by rememberUpdatedState(onIntent)
+    // Drag offset is gesture-local UI state, not screen state.
+    var offsetX by remember { mutableFloatStateOf(0f) }
+
     PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = {
-            isRefreshing = true
-            refreshKey++
-        },
+        isRefreshing = state.isRefreshing,
+        onRefresh = { onIntent(MenuIntent.Refresh) },
         modifier = Modifier.fillMaxSize(),
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize().pointerInput(Unit) {
                 detectHorizontalDragGestures(
-                    onDragStart = {
-                        offsetX = 0f
-                    },
+                    onDragStart = { offsetX = 0f },
                     onDragEnd = {
                         if (offsetX < -50) {
-                            date = date.plusDays(1)
+                            currentOnIntent(MenuIntent.SelectDate(currentDate.plusDays(1)))
                         } else if (offsetX > 50) {
-                            date = date.minusDays(1)
+                            currentOnIntent(MenuIntent.SelectDate(currentDate.minusDays(1)))
                         }
-                        datePickerState.setSelectedDate(date)
-                    }
+                    },
                 ) { _, dragAmount ->
                     offsetX += dragAmount
                 }
-            }
+            },
         ) {
-            if (todayMenu == null) {
+            state.error?.let { error ->
+                item { Text(text = error, modifier = Modifier.padding(10.dp)) }
+            }
+            val dayMenu = state.dayMenu
+            if (dayMenu == null && state.error == null) {
                 item { Text(text = "No menu available", modifier = Modifier.padding(10.dp)) }
             }
-            items(todayMenu ?: emptyList()) { timeEntry ->
-                Card(
-                    // color = MaterialTheme.colorScheme.surface,
-                    modifier = Modifier.padding(10.dp),
-                    // shape = RoundedCornerShape(CornerSize(10.dp))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(10.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(
-                            text = timeEntry.title,
-                            style = MaterialTheme.typography.titleLarge,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text(
-                            text = "(${timeEntry.start} - ${timeEntry.end})",
-                            style = MaterialTheme.typography.titleLarge,
-                        )
-                    }
-                    HorizontalDivider()
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.padding(4.dp),
-                    ) {
-                        for (foodEntry in timeEntry.foodEntries) {
-                            SuggestionChip(
-                                onClick = { Log.d("Suggestion chip", "hello world") },
-                                label = { Text("${icons[foodEntry.type]} ${foodEntry.name}") },
-                                // selected = true,
-                                colors = SuggestionChipDefaults.suggestionChipColors(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    labelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            )
-                        }
-                    }
-                }
+            items(dayMenu.orEmpty()) { timeEntry ->
+                TimeEntryCard(timeEntry)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimeEntryCard(timeEntry: TimeEntry) {
+    Card(modifier = Modifier.padding(10.dp)) {
+        Row(
+            modifier = Modifier.padding(10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = timeEntry.title,
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = "(${timeEntry.start} - ${timeEntry.end})",
+                style = MaterialTheme.typography.titleLarge,
+            )
+        }
+        HorizontalDivider()
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.padding(4.dp),
+        ) {
+            for (foodEntry in timeEntry.foodEntries) {
+                SuggestionChip(
+                    onClick = { Log.d("Suggestion chip", "hello world") },
+                    label = { Text("${foodIcons.getOrElse(foodEntry.type) { "" }} ${foodEntry.name}") },
+                    colors = SuggestionChipDefaults.suggestionChipColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        labelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
+                )
             }
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Preview(showBackground = true)
 @Composable
-fun App() {
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
-    var showCalendar by remember { mutableStateOf(false) }
-    var showCredits by remember { mutableStateOf(false) }
-    ApplicationTheme {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Text("VIT-AP Mess Menu")
-                    },
-                    actions = {
-                        IconButton(onClick = { showCredits = !showCredits }) {
-                            Icon(
-                                imageVector = Icons.Default.Menu,
-                                contentDescription = "Localized description"
-                            )
-                        }
-                    },
-                    scrollBehavior = scrollBehavior
-                )
-            },
-            floatingActionButton = {
-                FloatingActionButton(
-                    onClick = { showCalendar = true },
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.DateRange,
-                        contentDescription = "Select Date",
-                    )
-                }
-            }
-        ) {
-            paddingValues ->
-            Column(modifier = Modifier.padding(
-                top = paddingValues.calculateTopPadding(),
-            )) {
-                TimeEntries(showCalendar, showCredits, onDismissCalendar = { showCalendar = false }, onDismissCredits = { showCredits = false })
+private fun CalendarDialog(
+    selectedDate: LocalDateTime,
+    onConfirm: (LocalDateTime) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    // Picker state is a draft; it only reaches MenuState when the user confirms.
+    val pickerState = rememberDatePickerState()
+    LaunchedEffect(Unit) { pickerState.setSelectedDate(selectedDate.toLocalDate()) }
+
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                val picked = pickerState.getSelectedDate()
+                if (picked != null) onConfirm(picked.atTime(selectedDate.toLocalTime()))
+                onDismiss()
+            }) { Text("OK") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    ) {
+        DatePicker(state = pickerState)
+    }
+}
+
+@Composable
+private fun CreditsDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    fun open(url: String) = context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(text = "Soilad", textAlign = TextAlign.Left, fontSize = 24.sp)
+                Button(onClick = { open("https://github.com/Soilad") }) { Text("GH") }
+                Button(onClick = { open("https://www.youtube.com/@Soilad") }) { Text("YT") }
+                Button(onClick = { open("https://instagram.com/_soilad_") }) { Text("Insta") }
             }
         }
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun MenuScreenPreview() {
+    val sample = List(14) {
+        listOf(
+            TimeEntry(
+                title = "Lunch",
+                start = "12:30",
+                end = "14:00",
+                foodEntries = listOf(FoodEntry("Rice", 0), FoodEntry("Chicken curry", 1)),
+            ),
+        )
+    }
+    ApplicationTheme {
+        MenuScreen(
+            state = MenuState(monthMenu = sample, isLoading = false),
+            onIntent = {},
+        )
+    }
+}

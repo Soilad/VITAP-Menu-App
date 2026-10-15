@@ -11,11 +11,7 @@ import okhttp3.CacheControl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
-
-@Serializable
-data class FoodEntry(val name: String, val type: Int)
-@Serializable
-data class TimeEntry(val title: String, val start: String, val end: String, val foodEntries: List<FoodEntry>)
+import java.time.YearMonth
 
 const val cacheSize: Long = 1 * 1024 * 1024 // 1 MB
 private var client: OkHttpClient? = null
@@ -28,8 +24,8 @@ private fun getHttpClient(context: Context): OkHttpClient {
     }
 }
 
-suspend fun getMenu(context: Context, year: String, month: String, forceRefresh: Boolean = false): List<List<TimeEntry>>? = withContext(Dispatchers.IO) {
-    val url = "https://soilad.github.io/VITAP-Menu/menu/$year/$month/menu.json"
+suspend fun getMenu(context: Context, date: YearMonth, forceRefresh: Boolean = false): List<List<TimeEntry>>? = withContext(Dispatchers.IO) {
+    val url = "https://soilad.github.io/VITAP-Menu/menu/${date.year}/${date.monthValue.toString().padStart(2, '0')}/menu.json"
     val request = Request.Builder()
         .url(url)
         .apply { if (forceRefresh) cacheControl(CacheControl.FORCE_NETWORK) }
