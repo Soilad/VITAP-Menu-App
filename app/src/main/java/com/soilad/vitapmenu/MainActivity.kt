@@ -64,7 +64,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.soilad.vitapmenu.ui.theme.ApplicationTheme
 import java.time.LocalDateTime
 
-private val foodIcons = arrayOf("🥦", "🍖", "✨🥦", "✨🍖")
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

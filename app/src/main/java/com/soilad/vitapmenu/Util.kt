@@ -15,6 +15,7 @@ import java.io.File
 import java.time.YearMonth
 
 const val cacheSize: Long = 1 * 1024 * 1024 // 1 MB
+val foodIcons = arrayOf("🥦", "🍖", "✨🥦", "✨🍖")
 private var client: OkHttpClient? = null
 
 private fun getHttpClient(context: Context): OkHttpClient {
