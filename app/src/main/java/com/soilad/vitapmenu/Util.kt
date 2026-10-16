@@ -4,7 +4,8 @@ import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.Serializable
+import android.net.ConnectivityManager
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import okhttp3.Cache
 import okhttp3.CacheControl
@@ -24,7 +25,8 @@ private fun getHttpClient(context: Context): OkHttpClient {
     }
 }
 
-suspend fun getMenu(context: Context, date: YearMonth, forceRefresh: Boolean = false): List<List<TimeEntry>>? = withContext(Dispatchers.IO) {
+
+suspend fun _getMenu(context: Context, date: YearMonth, forceRefresh: Boolean = false): List<List<TimeEntry>>? = withContext(Dispatchers.IO) {
     val url = "https://soilad.github.io/VITAP-Menu/menu/${date.year}/${date.monthValue.toString().padStart(2, '0')}/menu.json"
     val request = Request.Builder()
         .url(url)
@@ -43,4 +45,30 @@ suspend fun getMenu(context: Context, date: YearMonth, forceRefresh: Boolean = f
         Log.e("Util", "Error fetching menu: ${e.message}")
         null
     }
+}
+suspend fun getMenu(context: Context, date: YearMonth, forceRefresh: Boolean = false): List<List<TimeEntry>>? = withContext(Dispatchers.IO) {
+    val cacheDir = context.cacheDir
+    val cacheFile = File(cacheDir, "${date.year}-${date.month}.json")
+    var jsonString: String? = null
+    if (cacheFile.exists()) {
+        jsonString = cacheFile.readText()
+    } else {
+        val url = "https://soilad.github.io/VITAP-Menu/menu/${date.year}/${date.monthValue.toString().padStart(2, '0')}/menu.json"
+        val request = Request.Builder()
+            .url(url)
+            .apply { if (forceRefresh) cacheControl(CacheControl.FORCE_NETWORK) }
+            .build()
+
+        try {
+            val httpClient = getHttpClient(context)
+            httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@withContext null
+                jsonString = response.body.string()
+                cacheFile.writeText(jsonString)
+            }
+        } catch (e: Exception) {
+            Log.e("Util", "Error fetching menu: ${e.message}")
+        }
+    }
+    jsonString?.let { Json.decodeFromString<List<List<TimeEntry>>>(it) }
 }

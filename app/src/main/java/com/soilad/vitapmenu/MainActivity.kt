@@ -234,12 +234,15 @@ private fun CalendarDialog(
     LaunchedEffect(Unit) { pickerState.setSelectedDate(selectedDate.toLocalDate()) }
 
     DatePickerDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            onDismiss()
+            val picked = pickerState.getSelectedDate()
+            if (picked != null) onConfirm(picked.atTime(selectedDate.toLocalTime()))
+        },
         confirmButton = {
             TextButton(onClick = {
                 val picked = pickerState.getSelectedDate()
-                if (picked != null) onConfirm(picked.atTime(selectedDate.toLocalTime()))
-                onDismiss()
+                if (picked != null) onConfirm(picked.atTime(selectedDate.toLocalTime())) else onDismiss()
             }) { Text("OK") }
         },
         dismissButton = {
